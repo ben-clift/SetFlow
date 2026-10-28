@@ -27,6 +27,28 @@ static std::vector<float> render(const Case& c, double sr, double dur, std::mt19
     }
   };
   const double beat0 = 60.0 / c.bpm;
+  if (c.style == 3) {
+    // Drum and bass: kick on 1 and the "and" of 3, snare on 2 and 4, 8th hats.
+    for (int bar = 0;; ++bar) {
+      double t0 = c.firstBeat + bar * 4 * beat0;
+      if (t0 >= dur) break;
+      add(t0, 0); add(t0 + 2.5 * beat0, 0);
+      add(t0 + 1 * beat0, 2); add(t0 + 3 * beat0, 2);
+      for (int h = 0; h < 8; ++h) add(t0 + h * 0.5 * beat0, 1);
+    }
+    return x;
+  }
+  if (c.style == 4) {
+    // Boom bap at 88: kick on 1 and 3, snare on 2 and 4, 8th hats.
+    for (int bar = 0;; ++bar) {
+      double t0 = c.firstBeat + bar * 4 * beat0;
+      if (t0 >= dur) break;
+      add(t0, 0); add(t0 + 2 * beat0, 0);
+      add(t0 + 1 * beat0, 2); add(t0 + 3 * beat0, 2);
+      for (int h = 0; h < 8; ++h) add(t0 + h * 0.5 * beat0, 1);
+    }
+    return x;
+  }
   for (int b = 0;; ++b) {
     double t = c.firstBeat + b * beat0 * (1.0 + c.drift);
     if (t >= dur) break;
@@ -47,7 +69,10 @@ int main() {
     {"house 124 loud hats", 124, 0.12, 0.0, 0.0, true, 0},
     {"techno 132", 132, 0.52, 0.0, 0.0, false, 1},
     {"techno 138 offbeat bass", 138, 0.21, 0.0, 0.0, true, 1},
-    {"dnb 174", 174, 0.30, 0.0, 0.0, false, 0},
+    {"dnb 174 four-on-floor", 174, 0.30, 0.0, 0.0, false, 0},
+    {"dnb 174 breakbeat", 174, 0.30, 0.0, 0.0, false, 3},
+    {"dnb 170 breakbeat", 170, 0.17, 0.0, 0.0, false, 3},
+    {"hiphop 88 boom bap", 88, 0.40, 0.0, 0.0, false, 4},
     {"hiphop 92", 92, 0.45, 0.2, 0.0, false, 0},
     {"electro 128 swing", 128, 0.08, 0.3, 0.0, false, 1},
     {"disco 118", 118, 0.60, 0.0, 0.0, true, 0},
@@ -63,7 +88,7 @@ int main() {
     // Octave-equivalent tempo (half/double) counts as the right grid.
     double ratio = r.bpm / c.bpm;
     double bpmErr = 1e9;
-    for (double m : {0.5, 1.0, 2.0}) bpmErr = std::min(bpmErr, std::fabs(r.bpm - c.bpm * m) / (c.bpm * m) * 100.0);
+    bpmErr = std::fabs(r.bpm - c.bpm) / c.bpm * 100.0;
     // Phase: distance of the detected beat grid from the true one, in ms.
     double fb = r.beats.empty() ? r.beatOffsetSec : r.beats[0];
     double d = std::fmod(fb - c.firstBeat, period);
