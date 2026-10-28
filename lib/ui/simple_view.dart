@@ -2004,6 +2004,8 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
               'Choose genres, mood, speed and how hard it hits. Tracks are lined up and blended in time, matched by tempo and key.'),
           point(Icons.cloud_upload_outlined, 'Bring your own music',
               'Upload your tracks to Google Drive or Dropbox, then add them from there. Or pick files from your phone, or connect your Mac.'),
+          point(Icons.auto_awesome, 'My style learns your sound',
+              'Star the tracks you love while they play. Setflow learns their genre, tempo and artists and picks more music like them.'),
           point(Icons.radio, 'Radio from everywhere',
               'Tune in to live stations worldwide, filtered by genre and country, from BBC 6 Music to local underground shows.'),
           point(Icons.travel_explore, 'Find new music',
@@ -2103,6 +2105,8 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
                 _showChooser = !playing;
               }),
           primary: true),
+      tile('My style', 'Learns your sound from the tracks you star, then picks more like them', Icons.auto_awesome,
+          () => _sheet('My style', _StyleBox(onPlayNow: () => _styleFallback(force: true)))),
       tile('Radio', 'Live stations from around the world: BBC 6 Music, NTS and thousands more', Icons.radio,
           () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const RadioPage()))),
       tile('Add your music', 'From Google Drive, Dropbox, your phone or other cloud storage', Icons.cloud_upload_outlined,
@@ -3434,7 +3438,7 @@ class _StyleBoxState extends State<_StyleBox> {
           const SizedBox(height: 6),
           const Text(
               'Star the tracks you love (the star button while a track plays). My style learns their genre, tempo and artists, '
-              'then picks more music like them. It plays tracks you already have first. If there are none, it finds similar artists online and downloads them.\n'
+              'then picks more music like them. It plays tracks you already have first. If there are none, it looks for similar free tracks online.\n'
               'Use it when the genre queue runs dry, or mix it in regularly below. Tick which starred tracks count, and set how far from them it may roam.',
               style: TextStyle(fontSize: 14)),
           const SizedBox(height: 8),
