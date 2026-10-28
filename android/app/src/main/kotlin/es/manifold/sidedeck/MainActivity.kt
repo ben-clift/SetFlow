@@ -1,0 +1,175 @@
+package es.manifold.sidedeck
+
+import android.content.Context
+import android.content.Intent
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import android.os.Build
+import android.os.Bundle
+import android.util.Log
+import android.view.WindowManager
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : FlutterActivity() {
+    private var usbHotplug: UsbHotplug? = null
+    private var nowPlaying: NowPlaying? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        keepScreenOn()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        keepScreenOn()
+    }
+
+    override fun onFlutterUiDisplayed() {
+        super.onFlutterUiDisplayed()
+        keepScreenOn()
+    }
+
+    private fun keepScreenOn() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.decorView.keepScreenOn = true
+        findViewById<android.view.View>(android.R.id.content)?.keepScreenOn = true
+    }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        MethodChannel(messenger, "sidedeck/audio")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "usbOutputDevice" -> result.success(findUsbOutput(this))
+                    "startUsbPlayback" -> {
+                        val handle = (call.argument<Number>("handle") ?: 0).toLong()
+                        val deviceId = call.argument<Int>("deviceId") ?: 0
+                        val channels = call.argument<Int>("channels") ?: 4
+                        result.success(UsbPlayer.start(this, handle, deviceId, channels))
+                    }
+                    "openUrl" -> {
+                        val url = call.argument<String>("url") ?: ""
+                        try {
+                            val i = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(i)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    }
+                    "openAppByName" -> {
+                        val name = call.argument<String>("name") ?: ""
+                        result.success(openAppByName(name))
+                    }
+                    "setBrightness" -> {
+                        // -1 follows the phone's own brightness.
+                        val v = (call.argument<Double>("value") ?: -1.0).toFloat()
+                        runOnUiThread {
+                            val lp = window.attributes
+                            lp.screenBrightness = if (v < 0f) WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE else v
+                            window.attributes = lp
+                        }
+                        result.success(null)
+                    }
+                    "stopUsbPlayback" -> {
+                        UsbPlayer.stop()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(messenger, "beatdeck/projector")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Names of the second screens that are connected right now.
+                    "displays" -> result.success(ProjectorPresentation.displays(this).map { it.name })
+                    "start" -> result.success(ProjectorPresentation.start(this))
+                    "stop" -> {
+                        ProjectorPresentation.stop()
+                        result.success(null)
+                    }
+                    "active" -> result.success(ProjectorPresentation.active())
+                    "js" -> {
+                        ProjectorPresentation.js(call.argument<String>("code") ?: "")
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        nowPlaying = NowPlaying(this, messenger)
+        val hotplug = UsbHotplug(this)
+        usbHotplug = hotplug
+        EventChannel(messenger, "sidedeck/usb").setStreamHandler(hotplug)
+    }
+
+    override fun onDestroy() {
+        nowPlaying?.release()
+        nowPlaying = null
+        usbHotplug?.stop()
+        usbHotplug = null
+        ProjectorPresentation.stop()
+        UsbPlayer.stop()
+        super.onDestroy()
+        // Closing the app (swiped away or backed out) must stop the music. The
+        // Closing the app must stop the audio engine, so end the process
+        // unless this is only a rotation or similar restart.
+        if (!isChangingConfigurations) {
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+    }
+
+    /** Opens an installed app whose launcher name matches [name] (case-insensitive). */
+    private fun openAppByName(name: String): Boolean {
+        if (name.isBlank()) return false
+        val pm = packageManager
+        val main = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val apps = pm.queryIntentActivities(main, 0)
+        val hit = apps.firstOrNull { it.loadLabel(pm).toString().equals(name, ignoreCase = true) }
+            ?: apps.firstOrNull { it.loadLabel(pm).toString().contains(name, ignoreCase = true) }
+            ?: return false
+        val launch = pm.getLaunchIntentForPackage(hit.activityInfo.packageName) ?: return false
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(launch)
+        return true
+    }
+
+    /** Android 14+ reports the configurations a USB output stream can be opened with. */
+    private fun mixerAttributesOf(am: AudioManager, device: AudioDeviceInfo): String {
+        if (Build.VERSION.SDK_INT < 34) return ""
+        return try {
+            am.getSupportedMixerAttributes(device).joinToString("; ") {
+                "${it.format.channelCount}ch enc=${it.format.encoding} sr=${it.format.sampleRate}"
+            }
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun findUsbOutput(context: Context): Map<String, Any> {
+        val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (Log.isLoggable("sidedeck", Log.DEBUG)) {
+            for (d in am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                Log.d(
+                    "sidedeck",
+                    "audio out id=${d.id} type=${d.type} name=${d.productName} " +
+                        "maxCh=${UsbDevices.maxChannels(am, d)} " +
+                        "counts=[${d.channelCounts.joinToString()}] " +
+                        "indexMasks=[${d.channelIndexMasks.joinToString { "0x" + Integer.toHexString(it) }}] " +
+                        "rates=[${d.sampleRates.joinToString()}] usb=${UsbDevices.isUsbOutput(d)} " +
+                        "mixer=[${mixerAttributesOf(am, d)}]",
+                )
+            }
+        }
+        val best = UsbDevices.findBest(am)
+        return mapOf(
+            "id" to (best?.first?.id ?: 0),
+            "channels" to (best?.second ?: 0),
+            "name" to (best?.first?.productName?.toString() ?: ""),
+        )
+    }
+}
