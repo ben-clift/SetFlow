@@ -120,7 +120,7 @@ class Catalog extends ChangeNotifier {
       if (speeds.isNotEmpty) 'speed': speeds.join('+'),
       if (vocal == 0) 'vocalinstrumental': 'instrumental',
     };
-    for (final t in await _all(tags.join(' '), jamendo: params, archive: null)) {
+    for (final t in await _all(tags.join(' '), jamendo: params, archive: '${tags.join(' ')} AND (subject:electronic OR subject:dance OR subject:house OR subject:techno OR subject:music)')) {
       if (seen.add(t.id)) out.add(t);
     }
     out.shuffle();
