@@ -458,6 +458,7 @@ class DjController extends ChangeNotifier {
     }
     if (_breakBassTick()) dirty = true;
     _afxBuildTick();
+    _syncLockTick();
     if (_driftTick()) dirty = true;
     if (_automixTick()) dirty = true;
     if (dirty) notifyListeners();
@@ -4016,6 +4017,34 @@ class DjController extends ChangeNotifier {
     _applySlaveTempo(deckIndex);
     if (d.playing) _alignPhase(deckIndex);
     notifyListeners();
+  }
+
+  DateTime _lastSyncLock = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Holds SYNC: twice a second, any synced deck that has drifted off the
+  /// master's beat is sped up or slowed by a hair (at most 1.2 %) until the
+  /// beats sit together again, so the lock lasts the whole track. A held
+  /// nudge button always wins.
+  void _syncLockTick() {
+    final now = DateTime.now();
+    if (now.difference(_lastSyncLock).inMilliseconds < 500) return;
+    _lastSyncLock = now;
+    final m = masterDeck;
+    if (m < 0 || !deck(m).loaded || !deck(m).playing) return;
+    final md = deck(m);
+    if (md.bpm <= 1) return;
+    for (var i = 0; i < deckCount; i++) {
+      final d = deck(i);
+      if (i == m || !d.synced || !d.loaded || !d.playing || d.bpm <= 1) continue;
+      if (_nudgeHold[i] != null) continue;
+      final pm = beatPhase(position: _engine.position(m), bpm: md.bpm, beatOffset: md.beatOffset);
+      final pf = beatPhase(position: _engine.position(i), bpm: d.bpm, beatOffset: d.beatOffset);
+      var delta = pm - pf;
+      if (delta > 0.5) delta -= 1;
+      if (delta < -0.5) delta += 1;
+      _nudgeBend[i] = delta.abs() < 0.01 ? 0.0 : (delta * 0.05).clamp(-0.012, 0.012).toDouble();
+      _applyRate(i);
+    }
   }
 
   /// Long press on SYNC: stop following the master.

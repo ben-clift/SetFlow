@@ -969,9 +969,14 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
     ]);
   }
 
+  bool _tips = false;
+
   Future<void> _loadIntro() async {
     // No sign-in step: Setflow needs no account.
     _introDone = true;
+    try {
+      _tips = !((await SharedPreferences.getInstance()).getBool('hub_tips_v1') ?? false);
+    } catch (_) {}
     if (mounted) setState(() => _introLoaded = true);
   }
 
@@ -2020,6 +2025,34 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
             future: Expiry.remaining(),
             builder: (_, snap) => Text('Test version: ${snap.data ?? '…'}', style: TextStyle(color: _dim)),
           ),
+        ),
+      if (_tips)
+        Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+          decoration: ThemeSettings.instance.box(size: 50),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('New here? Three quick steps', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                const SizedBox(height: 4),
+                Text('1. Add your music (Google Drive, Dropbox or your phone), or tune in to Radio.\n'
+                    '2. Open The Booth and pick a vibe: genre, speed and mood.\n'
+                    '3. Press start. Setflow lines up the tracks and blends them in time.',
+                    style: TextStyle(color: _dim, fontSize: 13, height: 1.35)),
+              ]),
+            ),
+            IconButton(
+              tooltip: 'Got it',
+              icon: const Icon(Icons.close, size: 20),
+              onPressed: () async {
+                setState(() => _tips = false);
+                try {
+                  await (await SharedPreferences.getInstance()).setBool('hub_tips_v1', true);
+                } catch (_) {}
+              },
+            ),
+          ]),
         ),
       Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 12),
