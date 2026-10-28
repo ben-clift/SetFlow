@@ -17,6 +17,7 @@ import 'package:sidedeck/state/app_mode.dart';
 import 'package:sidedeck/fetch/fetch_setup.dart';
 import 'package:sidedeck/fetch/storage_guard.dart';
 import 'package:sidedeck/fetch/catalog.dart';
+import 'package:sidedeck/ui/radio_page.dart';
 import 'package:sidedeck/ui/admin_dialog.dart';
 import 'package:sidedeck/ui/admin_hub.dart';
 import 'package:sidedeck/state/dj_controller.dart';
@@ -1959,6 +1960,8 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
               'Choose genres, mood, speed and how hard it hits. Tracks are lined up and blended in time, matched by tempo and key.'),
           point(Icons.cloud_upload_outlined, 'Bring your own music',
               'Upload your tracks to Google Drive or Dropbox, then add them from there. Or pick files from your phone, or connect your Mac.'),
+          point(Icons.radio, 'Radio from everywhere',
+              'Tune in to live stations worldwide, filtered by genre and country, from BBC 6 Music to local underground shows.'),
           point(Icons.travel_explore, 'Find new music',
               'Explore walks outward from an artist, label or genre to find more like it, with links to listen and buy.'),
           point(Icons.cast, 'Visuals for the room',
@@ -2028,6 +2031,8 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
                 _showChooser = !playing;
               }),
           primary: true),
+      tile('Radio', 'Live stations from around the world: BBC 6 Music, NTS and thousands more', Icons.radio,
+          () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const RadioPage()))),
       tile('Add your music', 'From Google Drive, Dropbox, your phone or other cloud storage', Icons.cloud_upload_outlined,
           () => widget.library.pickFiles()),
       tile('Appearance', 'Colours, shapes, 3D', Icons.palette_outlined,
@@ -2812,6 +2817,14 @@ Container(
       Text(d.loaded ? d.title : '…', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
       if (d.artist.isNotEmpty) Text(d.artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: _dim)),
       Text('${_mmss(d.position)} / ${_mmss(d.duration)}', style: TextStyle(fontSize: 12, color: _dim)),
+      if (d.path != null && Credits.of(d.path!) != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+              'Free music from ${Credits.of(d.path!)!.source}, ${Credits.of(d.path!)!.license}'
+              '${Credits.of(d.path!)!.pageUrl.isEmpty ? '' : '\n${Credits.of(d.path!)!.pageUrl}'}',
+              style: TextStyle(fontSize: 11, color: _dim)),
+        ),
     ]);
 
     return LayoutBuilder(builder: (context, box) {
