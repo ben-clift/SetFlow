@@ -1182,7 +1182,7 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
         while (mounted && run == _run && paths().length < _firstTracks) {
           if (DateTime.now().difference(started).inMinutes >= 5) {
             if (paths().isEmpty) {
-              setState(() => _note = 'Could not find music. Check your internet and try again.');
+              setState(() => _note = 'No music found yet. Add your own music (Google Drive, Dropbox or your phone) from the Home screen, check your internet, or tune in to Radio instead.');
               return;
             }
             break; // slow network: start with what has arrived
@@ -1846,6 +1846,28 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
     _toast('Copied the tempo report for ${rows.length} tracks. Paste it into a message.');
   }
 
+  void _about() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('About Setflow'),
+        content: const SingleChildScrollView(
+          child: Text(
+            'Setflow builds a DJ set from your own music and from free, legal sources.\n\n'
+            'Free music: Jamendo and the Internet Archive, played under the licence each artist chose. '
+            'Each track shows where it came from. Some tracks are listen-only and are removed once played.\n\n'
+            'Radio: stations from the open Radio Browser directory (radio-browser.info). '
+            'BBC, NTS and other well-known stations open on their own sites.\n\n'
+            'Pictures in the visuals: The Metropolitan Museum of Art, Open Access (public domain).\n\n'
+            'Your music stays on your phone, Google Drive, Dropbox or Mac. Setflow has no accounts and does not collect personal data.\n\n'
+            'Built on SideDeck by Manuel Jiménez (GPL-3.0-or-later).',
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+      ),
+    );
+  }
+
   void _copyLog() {
     Clipboard.setData(ClipboardData(text: DebugLog.instance.lines.join("\n")));
     DebugLog.instance.markCopied();
@@ -1909,6 +1931,7 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
                     PopupMenuButton<String>(
                       onSelected: (v) {
                         if (v == 'log') _copyLog();
+                        if (v == 'about') _about();
                         if (v == 'tempo') _copyTempoReport();
                         if (v == 'mac') _macSheet();
                         if (v == 'explore') Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ExplorePage(host: fullAppFinderHost(widget.library))));
@@ -1931,6 +1954,7 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
                         const PopupMenuItem(value: 'explore', child: Text('Explore: find new artists, labels and tracks')),
                         const PopupMenuItem(value: 'mac', child: Text('Connect my Mac (shared folders)')),
                         const PopupMenuItem(value: 'log', child: Text('Report a problem (copy log)')),
+                        const PopupMenuItem(value: 'about', child: Text('About, music sources and credits')),
                         const PopupMenuItem(value: 'tempo', child: Text('Copy tempo report of my tracks')),
                         const PopupMenuItem(value: 'pro', child: Text('Switch to Pro mode')),
                         PopupMenuItem(value: 'admin', child: Text(Admin.on.value ? 'Admin: turn off' : 'Admin code')),
@@ -2206,7 +2230,7 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
             style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
         const SizedBox(height: 6),
         const Text(
-          'Pick one or more, then tap Start. The music is found, downloaded and mixed for you.',
+          'Pick one or more, then tap Start. Your own music is used first, and Setflow finds free tracks to fill the set and blends everything in time.',
           style: TextStyle(color: Color(0xFFB8B3AA)),
         ),
         const SizedBox(height: 14),
