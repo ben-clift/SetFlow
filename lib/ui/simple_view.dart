@@ -1833,6 +1833,19 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
     );
   }
 
+  /// One line per track in the library with the tempo and key Setflow found,
+  /// so odd readings (a drum and bass track at half speed, say) are easy to spot.
+  void _copyTempoReport() {
+    const keys = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+    String key(int? k) => k == null || k < 0 || k > 23 ? '-' : '${keys[k % 12]}${k >= 12 ? 'm' : ''}';
+    final rows = [
+      for (final t in widget.library.tracks)
+        '${t.artist.isEmpty ? '' : '${t.artist} - '}${t.title} | ${t.bpm == null ? '-' : t.bpm!.toStringAsFixed(1)} BPM | ${key(t.key)} | ${t.genre.isEmpty ? '-' : t.genre} | ${(t.durationMs / 1000).round()}s'
+    ];
+    Clipboard.setData(ClipboardData(text: 'Setflow tempo report (${rows.length} tracks)\n${rows.join('\n')}'));
+    _toast('Copied the tempo report for ${rows.length} tracks. Paste it into a message.');
+  }
+
   void _copyLog() {
     Clipboard.setData(ClipboardData(text: DebugLog.instance.lines.join("\n")));
     DebugLog.instance.markCopied();
@@ -1896,6 +1909,7 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
                     PopupMenuButton<String>(
                       onSelected: (v) {
                         if (v == 'log') _copyLog();
+                        if (v == 'tempo') _copyTempoReport();
                         if (v == 'mac') _macSheet();
                         if (v == 'explore') Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ExplorePage(host: fullAppFinderHost(widget.library))));
                         if (v == 'projector') _openProjector();
@@ -1917,6 +1931,7 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
                         const PopupMenuItem(value: 'explore', child: Text('Explore: find new artists, labels and tracks')),
                         const PopupMenuItem(value: 'mac', child: Text('Connect my Mac (shared folders)')),
                         const PopupMenuItem(value: 'log', child: Text('Report a problem (copy log)')),
+                        const PopupMenuItem(value: 'tempo', child: Text('Copy tempo report of my tracks')),
                         const PopupMenuItem(value: 'pro', child: Text('Switch to Pro mode')),
                         PopupMenuItem(value: 'admin', child: Text(Admin.on.value ? 'Admin: turn off' : 'Admin code')),
                       ],
