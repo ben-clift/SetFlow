@@ -17,6 +17,7 @@ import 'package:sidedeck/state/app_mode.dart';
 import 'package:sidedeck/fetch/fetch_setup.dart';
 import 'package:sidedeck/fetch/storage_guard.dart';
 import 'package:sidedeck/fetch/catalog.dart';
+import 'package:sidedeck/ui/labels_page.dart';
 import 'package:sidedeck/ui/radio_page.dart';
 import 'package:sidedeck/ui/admin_dialog.dart';
 import 'package:sidedeck/ui/admin_hub.dart';
@@ -995,6 +996,16 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
   }
 
 
+  /// Opens a Bandcamp search for the playing track, so the artist and label get the sale.
+  Future<void> _buyTrack(String artist, String title) async {
+    final q = Uri.encodeQueryComponent([artist, title].where((x) => x.isNotEmpty).join(' '));
+    var ok = false;
+    try {
+      ok = (await const MethodChannel('sidedeck/audio').invokeMethod<bool>('openUrl', {'url': 'https://bandcamp.com/search?q=$q'})) ?? false;
+    } catch (_) {}
+    if (!ok) _toast('Could not open Bandcamp.');
+  }
+
   Future<void> _soundCloud() async {
     final q = Uri.encodeQueryComponent([_artist.text.trim(), _track.text.trim()].where((x) => x.isNotEmpty).join(' '));
     final url = q.isEmpty ? 'https://soundcloud.com/discover' : 'https://soundcloud.com/search?q=$q';
@@ -1860,6 +1871,7 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
             'BBC, NTS and other well-known stations open on their own sites.\n\n'
             'Pictures in the visuals: The Metropolitan Museum of Art, Open Access (public domain).\n\n'
             'Your music stays on your phone, Google Drive, Dropbox or Mac. Setflow has no accounts and does not collect personal data.\n\n'
+            'Labels: featured labels and how to take part are on the Home screen under Labels.\n\n'
             'Built on SideDeck by Manuel Jiménez (GPL-3.0-or-later).',
           ),
         ),
@@ -2107,6 +2119,8 @@ class _SimpleViewState extends State<SimpleView> with WidgetsBindingObserver {
           primary: true),
       tile('My style', 'Learns your sound from the tracks you star, then picks more like them', Icons.auto_awesome,
           () => _sheet('My style', _StyleBox(onPlayNow: () => _styleFallback(force: true)))),
+      tile('Labels', 'Featured labels, and how a label can take part', Icons.album_outlined,
+          () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LabelsPage()))),
       tile('Radio', 'Live stations from around the world: BBC 6 Music, NTS and thousands more', Icons.radio,
           () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const RadioPage()))),
       tile('Add your music', 'From Google Drive, Dropbox, your phone or other cloud storage', Icons.cloud_upload_outlined,
@@ -2900,6 +2914,16 @@ Container(
               'Free music from ${Credits.of(d.path!)!.source}, ${Credits.of(d.path!)!.license}'
               '${Credits.of(d.path!)!.pageUrl.isEmpty ? '' : '\n${Credits.of(d.path!)!.pageUrl}'}',
               style: TextStyle(fontSize: 11, color: _dim)),
+        ),
+      if (d.loaded && d.title.isNotEmpty)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 32), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            icon: const Icon(Icons.shopping_bag_outlined, size: 16),
+            label: const Text('Buy this track', style: TextStyle(fontSize: 13)),
+            onPressed: () => _buyTrack(d.artist, d.title),
+          ),
         ),
     ]);
 
