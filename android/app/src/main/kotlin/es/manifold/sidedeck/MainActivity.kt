@@ -16,9 +16,20 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private var usbHotplug: UsbHotplug? = null
     private var nowPlaying: NowPlaying? = null
+    private var launchRoute: String? = null
+
+    private fun noteRoute(i: Intent?) {
+        i?.getStringExtra("open")?.let { launchRoute = it; i.removeExtra("open") }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        noteRoute(intent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        noteRoute(intent)
         keepScreenOn()
     }
 
@@ -44,6 +55,11 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, "sidedeck/audio")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "takeLaunchRoute" -> {
+                        val r = launchRoute
+                        launchRoute = null
+                        result.success(r)
+                    }
                     "usbOutputDevice" -> result.success(findUsbOutput(this))
                     "startUsbPlayback" -> {
                         val handle = (call.argument<Number>("handle") ?: 0).toLong()
